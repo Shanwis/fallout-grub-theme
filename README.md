@@ -47,6 +47,13 @@ wget -O- https://github.com/shvchk/fallout-grub-theme/raw/master/install.sh | ba
 
 Full list of languages see in `INSTALLER_LANGS` variable in [install.sh](install.sh)
 
+**Alpine Linux:** Install `bash` and `grub` first, then run the install script:
+
+```sh
+apk add bash grub
+bash /tmp/install.sh
+```
+
 ---
 
 ### See also

@@ -11,12 +11,23 @@ INSTALLER_DEPENDENCIES=(
     'mktemp'
     'sed'
     'sort'
-    'sudo'
     'tar'
     'tee'
     'tr'
     'wget'
 )
+
+# Check for privilege elevation command
+if [ "$(id -u)" -eq 0 ]; then
+    SUDO=""
+elif command -v sudo > /dev/null 2>&1; then
+    SUDO="sudo"
+elif command -v doas > /dev/null 2>&1; then
+    SUDO="doas"
+else
+    echo >&2 "Neither sudo nor doas is available, and script is not running as root."
+    exit 1
+fi
 
 for i in "${INSTALLER_DEPENDENCIES[@]}"; do
     command -v $i > /dev/null 2>&1 || {
@@ -29,7 +40,7 @@ done
 cd $(mktemp -d)
 
 # Pre-authorise sudo
-sudo echo
+$SUDO echo
 
 # Select language, optional
 declare -A INSTALLER_LANGS=(
@@ -69,7 +80,7 @@ else
 fi
 
 echo 'Fetching and unpacking theme'
-wget -O - https://github.com/shvchk/${GRUB_THEME}/archive/master.tar.gz | tar -xzf - --strip-components=1
+wget -O - https://github.com/Shanwis/${GRUB_THEME}/archive/alpine.tar.gz | tar -xzf - --strip-components=1
 
 if [[ "$INSTALLER_LANG" != "English" ]]; then
     echo "Changing language to ${INSTALLER_LANG}"
@@ -99,8 +110,8 @@ if [[ -e /etc/os-release ]]; then
 
         UPDATE_GRUB='update-grub'
 
-    elif [[ "$ID" =~ (arch|gentoo|artix) || \
-            "$ID_LIKE" =~ (^arch|gentoo|^artix) ]]; then
+    elif [[ "$ID" =~ (arch|gentoo|artix|alpine) || \
+            "$ID_LIKE" =~ (^arch|gentoo|^artix|alpine) ]]; then
 
         UPDATE_GRUB="grub-mkconfig -o /boot/${GRUB_DIR}/grub.cfg"
 
@@ -118,25 +129,25 @@ if [[ -e /etc/os-release ]]; then
 fi
 
 echo 'Creating GRUB themes directory'
-sudo mkdir -p /boot/${GRUB_DIR}/themes/${GRUB_THEME}
+$SUDO mkdir -p /boot/${GRUB_DIR}/themes/${GRUB_THEME}
 
 echo 'Copying theme to GRUB themes directory'
-sudo cp -r * /boot/${GRUB_DIR}/themes/${GRUB_THEME}
+$SUDO cp -r * /boot/${GRUB_DIR}/themes/${GRUB_THEME}
 
 echo 'Removing other themes from GRUB config'
-sudo sed -i '/^GRUB_THEME=/d' /etc/default/grub
+$SUDO sed -i '/^GRUB_THEME=/d' /etc/default/grub
 
 echo 'Making sure GRUB uses graphical output'
-sudo sed -i 's/^\(GRUB_TERMINAL\w*=.*\)/#\1/' /etc/default/grub
+$SUDO sed -i 's/^\(GRUB_TERMINAL\w*=.*\)/#\1/' /etc/default/grub
 
 echo 'Removing empty lines at the end of GRUB config' # optional
-sudo sed -i -e :a -e '/^\n*$/{$d;N;};/\n$/ba' /etc/default/grub
+$SUDO sed -i -e :a -e '/^\n*$/{$d;N;};/\n$/ba' /etc/default/grub
 
 echo 'Adding new line to GRUB config just in case' # optional
-echo | sudo tee -a /etc/default/grub
+echo | $SUDO tee -a /etc/default/grub
 
 echo 'Adding theme to GRUB config'
-echo "GRUB_THEME=/boot/${GRUB_DIR}/themes/${GRUB_THEME}/theme.txt" | sudo tee -a /etc/default/grub
+echo "GRUB_THEME=/boot/${GRUB_DIR}/themes/${GRUB_THEME}/theme.txt" | $SUDO tee -a /etc/default/grub
 
 echo 'Removing theme installation files'
 rm -rf "$PWD"
@@ -144,7 +155,7 @@ cd
 
 echo 'Updating GRUB'
 if [[ $UPDATE_GRUB ]]; then
-    eval sudo "$UPDATE_GRUB"
+    eval $SUDO "$UPDATE_GRUB"
 else
     cat << '    EOF'
     --------------------------------------------------------------------------------
